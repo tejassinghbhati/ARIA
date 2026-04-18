@@ -1,0 +1,53 @@
+environment:
+  sim_backend: "pybullet"
+  gui: false                       # set true for visual debugging
+  physics_hz: 240
+  action_hz: 20                    # policy step frequency
+  max_episode_steps: 500
+  num_envs: 8                      # parallel environments
+  seed: 42
+
+  # PyBullet scene
+  scene_urdf: "configs/scenes/floor_plan.urdf"
+  robot_urdf: "configs/robots/franka_panda.urdf"
+  spawn_region_m: [-3.0, 3.0]     # x/y uniform sampling range
+
+observation:
+  max_graph_nodes: 64
+  node_feat_dim: 9                 # x,y,z + rgb + class_onehot_3
+  agent_state_dim: 6               # pos(3) + vel(3)
+  goal_dim: 64                     # scene node index one-hot, padded to max_nodes
+
+policy:
+  gnn:
+    hidden_channels: 128
+    num_layers: 3
+    heads: 4                       # GAT attention heads
+    dropout: 0.1
+    global_pool: "mean"
+    output_dim: 256
+  mlp_features_dim: 512            # after concat(gnn_out, agent_state, goal)
+
+ppo:
+  total_timesteps: 2_000_000
+  n_steps: 2048
+  batch_size: 512
+  n_epochs: 10
+  learning_rate: 3.0e-4
+  gamma: 0.99
+  gae_lambda: 0.95
+  clip_range: 0.2
+  ent_coef: 0.01
+  vf_coef: 0.5
+  max_grad_norm: 0.5
+
+checkpointing:
+  save_freq: 50_000
+  eval_freq: 25_000
+  eval_episodes: 20
+  best_model_path: "checkpoints/nav/best_model"
+  checkpoint_dir: "checkpoints/nav/"
+
+logging:
+  tensorboard_log: "runs/nav/"
+  verbose: 1

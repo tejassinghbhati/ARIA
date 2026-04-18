@@ -1,0 +1,75 @@
+environment:
+  sim_backend: "pybullet"
+  gui: false
+  physics_hz: 240
+  action_hz: 20
+  max_episode_steps: 300
+  num_envs: 4
+  seed: 7
+
+  robot_urdf: "configs/robots/franka_panda.urdf"
+  table_urdf: "configs/scenes/table.urdf"
+  object_urdfs:
+    - "configs/objects/mug.urdf"
+    - "configs/objects/cube.urdf"
+    - "configs/objects/bottle.urdf"
+  target_zone_pos: [0.5, 0.0, 0.65]   # xyz in world frame
+  object_spawn_range_xy: [[-0.15, 0.15], [-0.15, 0.15]]
+  object_spawn_z: 0.66
+
+observation:
+  max_graph_nodes: 32
+  node_feat_dim: 9
+  ee_pose_dim: 7               # pos(3) + quat(4)
+  ft_sensor_dim: 6             # force(3) + torque(3)
+  joint_pos_dim: 7
+  joint_vel_dim: 7
+
+policy:
+  gnn:
+    hidden_channels: 128
+    num_layers: 3
+    heads: 4
+    dropout: 0.1
+    global_pool: "mean"
+    output_dim: 256
+  mlp_features_dim: 512
+
+sac:
+  total_timesteps: 1_500_000
+  learning_rate: 3.0e-4
+  buffer_size: 500_000
+  learning_starts: 10_000
+  batch_size: 512
+  tau: 0.005
+  gamma: 0.99
+  train_freq: 1
+  gradient_steps: 1
+  ent_coef: "auto"
+  target_update_interval: 1
+
+domain_randomization:
+  enabled: true
+  texture_dir: "configs/textures/"
+  lighting:
+    color_temp_range: [3500, 6500]   # Kelvin
+    intensity_range: [0.7, 1.3]
+  physics:
+    friction_range: [0.2, 1.2]
+    mass_perturb_frac: 0.15
+    table_damping_range: [0.1, 0.5]
+  camera:
+    tilt_deg_std: 5.0
+    translation_m_std: 0.02
+    blur_sigma_range: [0.0, 1.5]
+
+checkpointing:
+  save_freq: 25_000
+  eval_freq: 20_000
+  eval_episodes: 20
+  best_model_path: "checkpoints/manip/best_model"
+  checkpoint_dir: "checkpoints/manip/"
+
+logging:
+  tensorboard_log: "runs/manip/"
+  verbose: 1

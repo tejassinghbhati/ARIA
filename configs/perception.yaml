@@ -1,0 +1,53 @@
+sensor_fusion:
+  # Camera intrinsics (RealSense D435 defaults)
+  camera:
+    fx: 615.0
+    fy: 615.0
+    cx: 320.0
+    cy: 240.0
+    width: 640
+    height: 480
+    depth_scale: 0.001          # metres per depth unit
+    max_depth_m: 6.0
+  # LiDAR → Camera extrinsics (identity = co-located)
+  lidar_to_camera:
+    translation: [0.0, 0.0, 0.0]
+    rotation_euler_deg: [0.0, 0.0, 0.0]
+  imu:
+    accel_noise_std: 0.01
+    gyro_noise_std: 0.001
+  output_frame_rate: 10          # Hz
+
+pointnet:
+  num_points: 2048
+  in_channels: 6                 # xyz + rgb
+  sa_radii: [[0.1, 0.2], [0.2, 0.4], [0.4, 0.8]]
+  sa_nsamples: [[16, 32], [16, 32], [16, 32]]
+  sa_mlps: [[32, 32, 64], [64, 64, 128], [128, 128, 256]]
+  global_feat_dim: 512
+  pretrained_weights: null       # path to .pt checkpoint or null
+
+occupancy_map:
+  resolution_m: 0.05             # voxel side length in metres
+  extent_m: [10.0, 10.0, 3.0]   # x, y, z extent of the grid
+  memory_frames: 50              # sliding-window history depth
+  obstacle_threshold: 0.6        # occupancy probability to mark as obstacle
+
+scene_graph:
+  max_nodes: 64
+  node_embed_dim: 256
+  spatial_predicates:
+    on_vertical_threshold_m: 0.05
+    near_distance_threshold_m: 1.0
+    inside_overlap_threshold: 0.5
+  clip_model: "ViT-B/32"
+  predicate_clip_confidence: 0.65
+
+nlp_grounding:
+  llm_model: "microsoft/Phi-3-mini-4k-instruct"
+  llm_device: "auto"            # "cpu", "cuda", or "auto"
+  llm_max_new_tokens: 256
+  llm_temperature: 0.1
+  use_llm: true                 # false → rule-based fallback only
+  sentence_transformer: "all-MiniLM-L6-v2"
+  clip_grounding_topk: 5
