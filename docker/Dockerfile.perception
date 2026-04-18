@@ -1,0 +1,44 @@
+# ============================================================
+# ARIA Perception Container
+# GPU-accelerated: Open3D, PointNet++, PyTorch, ONNX Runtime
+# ============================================================
+FROM nvcr.io/nvidia/pytorch:23.10-py3
+
+LABEL maintainer="aria-robot"
+LABEL description="ARIA 3D perception and NLP grounding stack"
+
+# System deps
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libgl1-mesa-glx libglib2.0-0 libsm6 libxrender1 libxext6 \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /opt/aria
+
+# Python deps (install in two stages to leverage Docker cache)
+COPY requirements.txt .
+RUN pip install --no-cache-dir \
+        open3d>=0.18.0 \
+        networkx>=3.2.0 \
+        scipy>=1.11.0 \
+        sentence-transformers>=2.7.0 \
+        transformers>=4.40.0 \
+        accelerate>=0.29.0 \
+        onnx>=1.15.0 \
+        onnxruntime-gpu>=1.17.0 \
+        prometheus-client>=0.20.0 \
+        pyyaml>=6.0.1 \
+        "git+https://github.com/openai/CLIP.git"
+
+# Copy ARIA package
+COPY aria/ aria/
+COPY configs/ configs/
+COPY pyproject.toml .
+
+RUN pip install --no-cache-dir -e .
+
+# Pre-download sentence-transformer model
+RUN python -c "from sentence_transformers import SentenceTransformer; SentenceTransformer('all-MiniLM-L6-v2')"
+
+EXPOSE 9091
+
+CMD ["python", "-m", "aria.production.metrics_exporter"]

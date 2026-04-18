@@ -1,0 +1,24 @@
+aria_perception_node:
+  ros__parameters:
+    config_path: /opt/aria/configs/perception.yaml
+    publish_rate_hz: 10.0
+
+aria_nav_policy_node:
+  ros__parameters:
+    onnx_path: /opt/aria/exports/onnx/aria_nav_policy.onnx
+    engine_path: /opt/aria/exports/trt/aria_nav_policy.trt
+    action_rate_hz: 20.0
+    use_fp16: true
+
+aria_manip_policy_node:
+  ros__parameters:
+    onnx_path: /opt/aria/exports/onnx/aria_manip_policy.onnx
+    engine_path: /opt/aria/exports/trt/aria_manip_policy.trt
+    action_rate_hz: 20.0
+    use_fp16: true
+
+aria_language_node:
+  ros__parameters:
+    llm_model: microsoft/Phi-3-mini-4k-instruct
+    llm_device: auto
+    sentence_transformer: all-MiniLM-L6-v2

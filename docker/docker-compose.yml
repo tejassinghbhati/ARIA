@@ -1,0 +1,90 @@
+version: "3.9"
+
+# ============================================================
+# ARIA — Full-stack Docker Compose orchestration
+# ============================================================
+# Prerequisites:
+#   docker compose up --build
+#   NVIDIA Container Toolkit installed for GPU services
+
+services:
+
+  # ── 3D Perception & NLP ────────────────────────────────────
+  aria-perception:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.perception
+    image: aria/perception:latest
+    container_name: aria-perception
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
+    volumes:
+      - ../configs:/opt/aria/configs:ro
+      - ../exports:/opt/aria/exports:ro
+      - aria-checkpoints:/opt/aria/checkpoints
+    ports:
+      - "9091:9091"         # Prometheus exporter
+    network_mode: host       # ROS2 DDS requires host networking
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9091/metrics"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # ── RL Training ──────────────────────────────────────────────
+  aria-rl-training:
+    build:
+      context: ..
+      dockerfile: docker/Dockerfile.rl_training
+    image: aria/rl-training:latest
+    container_name: aria-rl-training
+    runtime: nvidia
+    environment:
+      - NVIDIA_VISIBLE_DEVICES=all
+    volumes:
+      - ../configs:/opt/aria/configs:ro
+      - aria-checkpoints:/opt/aria/checkpoints
+      - aria-runs:/opt/aria/runs
+    command: >
+      python -m aria.rl.train_nav
+        --config configs/nav_training.yaml
+    profiles:
+      - training   # Only started with: docker compose --profile training up
+
+  # ── Monitoring: Prometheus ────────────────────────────────────
+  prometheus:
+    image: prom/prometheus:v2.50.0
+    container_name: aria-prometheus
+    volumes:
+      - ../monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+    ports:
+      - "9090:9090"
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.retention.time=7d
+    restart: unless-stopped
+
+  # ── Monitoring: Grafana ───────────────────────────────────────
+  grafana:
+    image: grafana/grafana:10.3.1
+    container_name: aria-grafana
+    environment:
+      - GF_AUTH_ANONYMOUS_ENABLED=true
+      - GF_AUTH_ANONYMOUS_ORG_ROLE=Viewer
+      - GF_SECURITY_ADMIN_PASSWORD=aria-admin
+    volumes:
+      - ../monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - grafana-data:/var/lib/grafana
+    ports:
+      - "3000:3000"
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+
+volumes:
+  aria-checkpoints:
+  aria-runs:
+  grafana-data:
