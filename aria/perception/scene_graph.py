@@ -60,6 +60,13 @@ class SceneNode:
     color_rgb: np.ndarray = field(default_factory=lambda: np.zeros(3))  # mean RGB in [0,1]
     metadata: Dict[str, Any] = field(default_factory=dict)
 
+    def __repr__(self) -> str:
+        c = self.centroid.round(3).tolist()
+        return (
+            f"SceneNode(id={self.node_id}, label={self.class_label!r}, "
+            f"centroid={c}, conf={self.confidence:.2f})"
+        )
+
     def to_feature_vector(self, max_embed_dim: int = 64) -> np.ndarray:
         """Compact node feature: [centroid(3), color_rgb(3), embed[:max_embed_dim]]."""
         embed = self.embedding
@@ -362,11 +369,18 @@ class SceneGraph:
         """Human-readable summary of the current graph state."""
         lines = [f"SceneGraph: {self.num_nodes()} nodes, {self._graph.number_of_edges()} edges"]
         for nid, node in self._node_registry.items():
-            preds = [(p, n) for n, p in self.neighbours(nid)]
-            lines.append(f"  [{nid}] {node.class_label} @ {node.centroid.round(2)}")
-            for p, nbr in preds:
-                lines.append(f"       {p} → [{nbr}] {self._node_registry[nbr].class_label}")
+            lines.append(f"  [{nid}] {node.class_label} @ {node.centroid.round(2)} (conf={node.confidence:.2f})")
+            for nbr_id, predicate in self.neighbours(nid):
+                nbr_label = self._node_registry[nbr_id].class_label
+                lines.append(f"       --{predicate}--> [{nbr_id}] {nbr_label}")
         return "\n".join(lines)
+
+    def clear(self) -> None:
+        """Remove all nodes and edges, resetting the graph to an empty state."""
+        self._graph.clear()
+        self._node_registry.clear()
+        self._next_id = 0
+        logger.debug("SceneGraph cleared.")
 
     # ------------------------------------------------------------------
     # Private helpers
