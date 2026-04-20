@@ -12,11 +12,12 @@ license = { text = "MIT" }
 authors = [{ name = "ARIA Authors" }]
 keywords = ["robotics", "embodied-ai", "reinforcement-learning", "3d-vision", "scene-graph"]
 classifiers = [
-    "Development Status :: 3 - Alpha",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Science/Research",
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
 ]
 
 [project.urls]
