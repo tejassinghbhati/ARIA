@@ -118,3 +118,36 @@ class TestSceneGraph:
         results = sg.query_node("mug", top_k=2, use_embedding=False)
         # "red mug" should score higher than "bottle"
         assert results[0][0] == mug_id
+
+    def test_clear_resets_graph(self) -> None:
+        sg = SceneGraph(max_nodes=16, use_clip=False)
+        for i in range(3):
+            sg.add_or_update_node(_make_node(i, f"obj_{i}", [float(i), 0.0, 0.5]))
+        assert sg.num_nodes() == 3
+        sg.clear()
+        assert sg.num_nodes() == 0
+        assert sg._graph.number_of_nodes() == 0
+        assert sg._next_id == 0
+
+    def test_clear_allows_reuse(self) -> None:
+        """Nodes added after clear() should work normally."""
+        sg = SceneGraph(max_nodes=16, use_clip=False)
+        sg.add_or_update_node(_make_node(0, "mug", [0.0, 0.0, 0.5]))
+        sg.clear()
+        new_id = sg.add_or_update_node(_make_node(0, "bottle", [1.0, 0.0, 0.5]))
+        assert sg.num_nodes() == 1
+        assert sg.get_node(new_id).class_label == "bottle"
+
+
+class TestSceneNodeRepr:
+    def test_repr_contains_label_and_id(self) -> None:
+        node = _make_node(7, "red_mug", [0.5, 0.1, 0.9])
+        r = repr(node)
+        assert "red_mug" in r
+        assert "id=7" in r
+
+    def test_repr_contains_centroid(self) -> None:
+        node = _make_node(0, "shelf", [1.23, 4.56, 7.89])
+        r = repr(node)
+        # centroid should be rounded and appear in repr
+        assert "1.23" in r
