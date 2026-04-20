@@ -153,9 +153,25 @@ def main() -> None:
         "--resume", type=str, default=None,
         help="Path to a checkpoint .zip to resume from",
     )
+    parser.add_argument(
+        "--timesteps", type=int, default=None,
+        help="Override ppo.total_timesteps from config",
+    )
+    parser.add_argument(
+        "--seed", type=int, default=None,
+        help="Override environment.seed from config",
+    )
     args = parser.parse_args()
 
     cfg = _load_cfg(args.config)
+
+    # Apply CLI overrides
+    if args.timesteps is not None:
+        cfg.setdefault("ppo", {})["total_timesteps"] = args.timesteps
+        logger.info("CLI override: total_timesteps=%d", args.timesteps)
+    if args.seed is not None:
+        cfg.setdefault("environment", {})["seed"] = args.seed
+        logger.info("CLI override: seed=%d", args.seed)
 
     if args.resume:
         import stable_baselines3 as sb3

@@ -68,6 +68,13 @@ class FusedFrame:
         pcd.colors = o3d.utility.Vector3dVector(self.colors.astype(np.float64))
         return pcd
 
+    def __repr__(self) -> str:
+        t = self.pose[:3, 3].round(3).tolist()
+        return (
+            f"FusedFrame(t={self.timestamp:.3f}s, "
+            f"pts={self.num_points}, pose_xyz={t})"
+        )
+
 
 # ---------------------------------------------------------------------------
 # Camera intrinsics helper
@@ -244,8 +251,11 @@ class SensorFusion:
         )
 
     def reset_pose(self) -> None:
-        """Reset IMU integrator to origin."""
+        """Reset IMU integrator to origin (alias: reset_imu)."""
         self._imu = _IMUIntegrator()
+
+    # Alias for discoverable API
+    reset_imu = reset_pose
 
     # ------------------------------------------------------------------
     # Private helpers
