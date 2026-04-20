@@ -6,6 +6,7 @@
 
 ## Overview
 
+(I am currently working on this, will make sure to have it perfected soon)
 ARIA is a production-grade embodied AI pipeline that enables a robot to:
 
 1. **Understand** a natural language command (e.g. _"fetch the red mug from the shelf"_)
