@@ -267,6 +267,14 @@ class SceneGraph:
         data = self._graph.get_edge_data(src, dst)
         return data["predicate"] if data else None
 
+    def get_edge_weight(self, src: int, dst: int) -> float:
+        """
+        Return the spatial-distance weight on an edge (lower = closer).
+        Returns 1.0 if the edge does not exist.
+        """
+        data = self._graph.get_edge_data(src, dst)
+        return float(data["weight"]) if data else 1.0
+
     # ------------------------------------------------------------------
     # Querying
     # ------------------------------------------------------------------
@@ -382,6 +390,67 @@ class SceneGraph:
         self._next_id = 0
         logger.debug("SceneGraph cleared.")
 
+    def subgraph_around(
+        self,
+        node_id: int,
+        depth: int = 1,
+    ) -> "SceneGraph":
+        """
+        Extract the *ego subgraph* centred on ``node_id`` up to ``depth`` hops.
+
+        Returns a new :class:`SceneGraph` containing only the nodes reachable
+        within ``depth`` directed steps from ``node_id`` (inclusive), together
+        with the edges between them.  The new graph is independent and does not
+        share state with the original.
+
+        Parameters
+        ----------
+        node_id : int   — centre of the ego subgraph
+        depth   : int   — maximum number of edge hops to include
+
+        Returns
+        -------
+        SceneGraph
+            A new SceneGraph containing the subgraph.
+        """
+        if node_id not in self._node_registry:
+            raise KeyError(f"node_id {node_id} not found in graph")
+
+        # BFS from node_id up to 'depth' hops
+        visited: set[int] = {node_id}
+        frontier: set[int] = {node_id}
+        for _ in range(depth):
+            next_frontier: set[int] = set()
+            for nid in frontier:
+                for nbr in self._graph.successors(nid):
+                    if nbr not in visited:
+                        visited.add(nbr)
+                        next_frontier.add(nbr)
+            frontier = next_frontier
+
+        sub = SceneGraph(
+            max_nodes=self.max_nodes,
+            near_threshold_m=self._near_thresh,
+            on_vertical_threshold_m=self._on_vert_thresh,
+            inside_overlap_threshold=self._inside_thresh,
+            use_clip=False,   # avoid reloading CLIP for a temporary subgraph
+        )
+        # Insert nodes in discovery order so IDs are preserved where possible
+        for nid in sorted(visited):
+            node = self._node_registry[nid]
+            sub._node_registry[nid] = node
+            sub._graph.add_node(nid, label=node.class_label)
+        # Copy edges that fall within the subgraph
+        for src, dst, data in self._graph.edges(data=True):
+            if src in visited and dst in visited:
+                sub._graph.add_edge(src, dst, **data)
+        sub._next_id = max(visited) + 1
+        logger.debug(
+            "subgraph_around(%d, depth=%d): %d nodes, %d edges",
+            node_id, depth, len(visited), sub._graph.number_of_edges(),
+        )
+        return sub
+
     # ------------------------------------------------------------------
     # Private helpers
     # ------------------------------------------------------------------
@@ -396,16 +465,17 @@ class SceneGraph:
         for other_id, node_b in self._node_registry.items():
             if other_id == node_id:
                 continue
+            dist = float(np.linalg.norm(node_a.centroid - node_b.centroid))
             # a → b
             for pred in _infer_spatial_predicates(
                 node_a, node_b, self._near_thresh, self._on_vert_thresh, self._inside_thresh
             ):
-                self._graph.add_edge(node_id, other_id, predicate=pred)
+                self._graph.add_edge(node_id, other_id, predicate=pred, weight=dist)
             # b → a
             for pred in _infer_spatial_predicates(
                 node_b, node_a, self._near_thresh, self._on_vert_thresh, self._inside_thresh
             ):
-                self._graph.add_edge(other_id, node_id, predicate=pred)
+                self._graph.add_edge(other_id, node_id, predicate=pred, weight=dist)
 
     def _evict_lowest_confidence(self) -> None:
         """Remove the node with the lowest confidence score to make room."""
