@@ -68,6 +68,11 @@ class FusedFrame:
         pcd.colors = o3d.utility.Vector3dVector(self.colors.astype(np.float64))
         return pcd
 
+    @property
+    def is_empty(self) -> bool:
+        """Return True if the fused frame contains no points."""
+        return self.num_points == 0
+
     def __repr__(self) -> str:
         t = self.pose[:3, 3].round(3).tolist()
         return (
@@ -179,6 +184,9 @@ class SensorFusion:
         voxel_size_m: float = 0.03,
         use_icp: bool = False,
         icp_max_iter: int = 30,
+        remove_outliers: bool = True,
+        outlier_nb_neighbors: int = 20,
+        outlier_std_ratio: float = 2.0,
     ) -> None:
         self.intrinsics = intrinsics or CameraIntrinsics()
         self.lidar_to_camera = (
@@ -187,8 +195,14 @@ class SensorFusion:
         self.voxel_size_m = voxel_size_m
         self.use_icp = use_icp
         self.icp_max_iter = icp_max_iter
+        self.remove_outliers = remove_outliers
+        self.outlier_nb_neighbors = outlier_nb_neighbors
+        self.outlier_std_ratio = outlier_std_ratio
         self._imu = _IMUIntegrator()
-        logger.info("SensorFusion initialised (voxel=%.3fm, icp=%s)", voxel_size_m, use_icp)
+        logger.info(
+            "SensorFusion initialised (voxel=%.3fm, icp=%s, outlier_removal=%s)",
+            voxel_size_m, use_icp, remove_outliers,
+        )
 
     # ------------------------------------------------------------------
     # Public API
@@ -236,7 +250,14 @@ class SensorFusion:
         # 3. Voxel downsample
         rgbd_cloud = rgbd_cloud.voxel_down_sample(self.voxel_size_m)
 
-        # 4. Transform to world frame
+        # 4. Statistical outlier removal
+        if self.remove_outliers and len(rgbd_cloud.points) > self.outlier_nb_neighbors:
+            rgbd_cloud, _ = rgbd_cloud.remove_statistical_outlier(
+                nb_neighbors=self.outlier_nb_neighbors,
+                std_ratio=self.outlier_std_ratio,
+            )
+
+        # 5. Transform to world frame
         rgbd_cloud.transform(pose)
 
         pts = np.asarray(rgbd_cloud.points, dtype=np.float32)
