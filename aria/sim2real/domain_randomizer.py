@@ -161,6 +161,65 @@ class DomainRandomizer:
         """Return the camera perturbation active for the current episode."""
         return self._current_camera
 
+    def reset(self, seed: int | None = None) -> None:
+        """
+        Reset the randomizer state for a new experiment run.
+
+        Re-seeds the internal RNG and clears the current camera params,
+        allowing the same DomainRandomizer instance to be reused across
+        multiple independent training runs without re-instantiation.
+
+        Parameters
+        ----------
+        seed : int | None
+            Optional RNG seed.  If None, a new random seed is drawn.
+        """
+        self._rng = np.random.default_rng(seed)
+        self._current_camera = CameraParams()
+        logger.info("DomainRandomizer reset (seed=%s)", seed)
+
+    def apply_wind_disturbance(
+        self,
+        client_id: int,
+        object_ids: List[int],
+        wind_force_range: Tuple[float, float] = (-2.0, 2.0),
+    ) -> Dict[str, Any]:
+        """
+        Apply a simulated wind impulse to all dynamic objects.
+
+        This injects a small random lateral force along the X and Y axes,
+        mimicking low-level aerodynamic disturbances useful for training
+        robustness in outdoor or drone-manipulation scenarios.
+
+        Parameters
+        ----------
+        client_id       : int              — PyBullet physics client
+        object_ids      : list[int]        — body IDs to disturb
+        wind_force_range: (float, float)   — min/max force in Newtons per axis
+
+        Returns
+        -------
+        dict — applied force vectors per object
+        """
+        import pybullet as pb
+        log: Dict[str, Any] = {}
+        for oid in object_ids:
+            fx = float(self._rng.uniform(*wind_force_range))
+            fy = float(self._rng.uniform(*wind_force_range))
+            try:
+                pb.applyExternalForce(
+                    oid, -1,
+                    forceObj=[fx, fy, 0.0],
+                    posObj=[0.0, 0.0, 0.0],
+                    flags=pb.LINK_FRAME,
+                    physicsClientId=client_id,
+                )
+                log[oid] = {"fx": fx, "fy": fy}
+            except Exception:
+                pass
+        logger.debug("Wind disturbance applied: %s", log)
+        return log
+
     def apply_blur_to_image(self, image: np.ndarray) -> np.ndarray:
         """
         Apply Gaussian blur to a (H, W, 3) uint8 image using the current
