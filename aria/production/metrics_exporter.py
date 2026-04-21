@@ -76,6 +76,11 @@ if _PROM_AVAILABLE:
     _model_drift_score   = Gauge("aria_model_drift_score",   "Action distribution drift score")
     _fps_gauge           = Gauge("aria_fps",                 "Estimated inference fps")
     _system_health_gauge = Gauge("aria_system_health",       "Overall system health (1=OK)")
+    _inference_error_total = Counter(
+        "aria_inference_error_total",
+        "Total inference errors per model (NaN, OOM, timeout, etc.)",
+        labelnames=["model", "reason"],
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -105,6 +110,9 @@ class ARIAMetricsExporter:
         self._frame_timestamps: deque[float] = deque(maxlen=fps_window)
         self._is_running = False
         self._lock = threading.Lock()
+        self._inference_errors: Dict[str, int] = {}  # model -> error count
+        self._last_drift_score: float = 0.0
+        self._last_fps: float = 0.0
 
     # ------------------------------------------------------------------
     # Lifecycle
@@ -188,6 +196,7 @@ class ARIAMetricsExporter:
         Record the KL divergence between current and baseline action distribution.
         A high score (> 0.1) may indicate distribution shift / model drift.
         """
+        self._last_drift_score = kl_divergence
         if _PROM_AVAILABLE:
             _model_drift_score.set(kl_divergence)
         if kl_divergence > 0.1:
@@ -206,13 +215,72 @@ class ARIAMetricsExporter:
             logger.error("ARIA system health: DEGRADED")
 
     # ------------------------------------------------------------------
+    # Inference errors
+    # ------------------------------------------------------------------
+
+    def record_inference_error(self, model: str, reason: str = "unknown") -> None:
+        """
+        Record an inference-level error for a named model.
+
+        Typical reasons: ``"nan_output"``, ``"cuda_oom"``, ``"timeout"``.
+
+        Parameters
+        ----------
+        model  : str  — model name (e.g. "pointnet", "gnn")
+        reason : str  — short error category label
+        """
+        key = f"{model}/{reason}"
+        with self._lock:
+            self._inference_errors[key] = self._inference_errors.get(key, 0) + 1
+        if _PROM_AVAILABLE:
+            _inference_error_total.labels(model=model, reason=reason).inc()
+        logger.error("Inference error [%s]: %s", model, reason)
+
+    # ------------------------------------------------------------------
+    # Snapshot
+    # ------------------------------------------------------------------
+
+    def get_snapshot(self) -> Dict[str, object]:
+        """
+        Return a plain-dict snapshot of all current metric values.
+
+        Useful for structured logging (JSON/YAML) without needing to
+        scrape the Prometheus HTTP endpoint.
+
+        Returns
+        -------
+        dict with keys: success_rate, task_count, fps, drift_score,
+                         inference_errors.
+        """
+        with self._lock:
+            errors_copy = dict(self._inference_errors)
+            task_count = len(self._task_results)
+            success_rate = sum(self._task_results) / max(task_count, 1)
+
+        fps = self._last_fps
+        if len(self._frame_timestamps) >= 2:
+            span = self._frame_timestamps[-1] - self._frame_timestamps[0]
+            fps = (len(self._frame_timestamps) - 1) / (span + 1e-8)
+
+        return {
+            "success_rate":      round(success_rate, 4),
+            "task_count":        task_count,
+            "fps":               round(fps, 2),
+            "drift_score":       round(self._last_drift_score, 6),
+            "inference_errors":  errors_copy,
+        }
+
+    # ------------------------------------------------------------------
     # Summary (for logging without Prometheus)
     # ------------------------------------------------------------------
 
     def summary(self) -> str:
+        snap = self.get_snapshot()
         return (
             f"ARIAMetrics | "
-            f"success_rate={self.rolling_success_rate:.2%} | "
-            f"tasks={len(self._task_results)} | "
-            f"fps_window={len(self._frame_timestamps)}"
+            f"success_rate={snap['success_rate']:.2%} | "
+            f"tasks={snap['task_count']} | "
+            f"fps={snap['fps']:.1f} | "
+            f"drift={snap['drift_score']:.4f} | "
+            f"errors={snap['inference_errors']}"
         )
