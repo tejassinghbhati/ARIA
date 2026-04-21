@@ -56,6 +56,20 @@ class CameraCalibration:
     def cy(self) -> float: return float(self.K[1, 2])
 
     @property
+    def fov_deg(self) -> Tuple[float, float]:
+        """
+        Compute horizontal and vertical field-of-view in degrees.
+
+        Returns
+        -------
+        (hfov_deg, vfov_deg) — both as floating-point degree values.
+        """
+        import math
+        hfov = math.degrees(2.0 * math.atan(self.width  / (2.0 * self.fx)))
+        vfov = math.degrees(2.0 * math.atan(self.height / (2.0 * self.fy)))
+        return hfov, vfov
+
+    @property
     def extrinsic_matrix(self) -> np.ndarray:
         """4×4 homogeneous world-T-camera transform."""
         T = np.eye(4, dtype=np.float64)
@@ -177,3 +191,19 @@ def default_realsense_d435() -> CalibrationBundle:
                   [0.0, 615.0, 240.0],
                   [0.0, 0.0, 1.0]], dtype=np.float64)
     return CalibrationBundle(camera=CameraCalibration(K=K))
+
+
+def default_realsense_d455() -> CalibrationBundle:
+    """
+    Return a CalibrationBundle with typical RealSense D455 parameters.
+
+    The D455 has a wider field-of-view lens and operates at 848×480
+    resolution by default, making it better suited for outdoor and
+    wide-workspace manipulation tasks.
+    """
+    K = np.array([[631.0, 0.0, 424.0],
+                  [0.0, 631.0, 240.0],
+                  [0.0, 0.0,   1.0]], dtype=np.float64)
+    return CalibrationBundle(
+        camera=CameraCalibration(K=K, width=848, height=480)
+    )

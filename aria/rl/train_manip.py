@@ -132,9 +132,35 @@ def train(cfg: dict) -> None:
 def main() -> None:
     parser = argparse.ArgumentParser(description="ARIA — SAC Manipulation Training")
     parser.add_argument("--config", type=str, default="configs/manip_training.yaml")
-    parser.add_argument("--resume", type=str, default=None)
+    parser.add_argument("--resume", type=str, default=None,
+                        help="Path to a checkpoint .zip to resume training from")
+    parser.add_argument("--n-envs", type=int, default=None,
+                        help="Override environment.num_envs from the config")
+    parser.add_argument("--eval-only", type=str, default=None, metavar="CHECKPOINT",
+                        help="Load CHECKPOINT and run evaluation only (no training)")
     args = parser.parse_args()
     cfg = _load_cfg(args.config)
+
+    # Apply CLI overrides
+    if args.n_envs is not None:
+        cfg.setdefault("environment", {})["num_envs"] = args.n_envs
+        logger.info("CLI override: num_envs=%d", args.n_envs)
+
+    if args.eval_only:
+        logger.info("Eval-only mode: loading %s", args.eval_only)
+        env_cfg = cfg.get("environment", {})
+        eval_env = build_env(cfg, n_envs=1, seed=env_cfg.get("seed", 7) + 999, use_dr=False)
+        model = SAC.load(args.eval_only, env=eval_env)
+        ck_cfg = cfg.get("checkpointing", {})
+        from stable_baselines3.common.evaluation import evaluate_policy
+        mean_reward, std_reward = evaluate_policy(
+            model, eval_env,
+            n_eval_episodes=ck_cfg.get("eval_episodes", 20),
+            deterministic=True,
+        )
+        logger.info("Eval complete — mean_reward=%.3f ± %.3f", mean_reward, std_reward)
+        eval_env.close()
+        return
 
     if args.resume:
         env_cfg = cfg.get("environment", {})
