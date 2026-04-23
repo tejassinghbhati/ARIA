@@ -1,160 +1,146 @@
-# ARIA — Autonomous Robot Intelligence Architecture
+# ARIA: Autonomous Robot Intelligence Architecture
 
-> **Embodied AI system** — perceive, reason, navigate, and manipulate in 3D indoor environments from natural language instructions.
-
----
-
-## Overview
-
-(I am currently working on this, will make sure to have it perfected soon)
-ARIA is a production-grade embodied AI pipeline that enables a robot to:
-
-1. **Understand** a natural language command (e.g. _"fetch the red mug from the shelf"_)
-2. **Perceive** its 3D environment via RGB-D, LiDAR, and IMU sensor fusion
-3. **Reason** about objects and spatial relationships using a live semantic scene graph
-4. **Navigate** to a target object using a PPO-trained policy
-5. **Manipulate** objects with a SAC-trained Franka Panda pick-and-place policy
-6. **Deploy** at 30fps+ on physical hardware via ONNX/TensorRT, ROS2, and Docker
+**An Embodied AI framework for perception, reasoning, navigation, and manipulation in 3D environments.**
 
 ---
 
-## Architecture
+## Abstract
 
-```
-NL Command
-    ↓
-┌─────────────────────────────────────────────────────────────┐
-│  Language Node (Phi-3-mini LLM → Sub-goal planner)         │
-│  SubGoals: [navigate_to "shelf"] → [pick_up "red mug"] …   │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ grounded node IDs
-┌──────────────────────────▼──────────────────────────────────┐
-│  Perception Pipeline (10 Hz)                                │
-│  RGB-D + LiDAR + IMU → SensorFusion → PointNet++ →         │
-│  OccupancyMap + SceneGraph (NetworkX DiGraph)               │
-└──────────────────────────┬──────────────────────────────────┘
-                           │ scene graph tensors
-┌──────────────────────────▼──────────────────────────────────┐
-│  RL Policy (20 Hz)                                          │
-│  GNNSceneGraphExtractor (GAT) → PPO Nav | SAC Manip         │
-│  → /cmd_vel  |  → /franka/joint_commands                    │
-└──────────────────────────┬──────────────────────────────────┘
-                           │
-         Physical Robot (Franka Emika Panda)
-```
+The Autonomous Robot Intelligence Architecture (ARIA) is an advanced, production-grade embodied AI framework designed to bridge the gap between high-level natural language reasoning and low-level robotic control. ARIA integrates multimodal perception (RGB-D, LiDAR, IMU) with large language model (LLM) based sub-goal planning, culminating in deep reinforcement learning (DRL) policies for robust navigation and dexterous manipulation. The system is engineered for high-frequency deployment on physical hardware (Franka Emika Panda) utilizing optimized ONNX/TensorRT runtimes within a ROS2 ecosystem.
 
----
+## System Architecture
 
-## Repository Structure
+ARIA operates via a cohesive pipeline that translates natural language into physical robotic action:
 
-```
+1. **Semantic Planning Node**: Utilizes a Phi-3-mini LLM for zero-shot task decomposition, grounding natural language instructions into actionable sub-goals (e.g., `[navigate_to "shelf"] → [pick_up "red mug"]`).
+2. **Multimodal Perception Pipeline (10 Hz)**: Fuses RGB-D, LiDAR, and IMU data to construct a dense 3D representation. PointNet++ features are extracted to maintain a dynamic, live semantic scene graph represented as a NetworkX directed graph.
+3. **Reinforcement Learning Control (20 Hz)**: A Graph Neural Network (GNN) based feature extractor processes the scene graph to condition Proximal Policy Optimization (PPO) for mobile navigation and Soft Actor-Critic (SAC) for continuous manipulation control.
+4. **Hardware Deployment**: Action vectors are mapped to continuous control commands (`/cmd_vel`, `/franka/joint_commands`) on the physical robot.
+
+## Repository Organization
+
+```text
 ARIA/
 ├── aria/
-│   ├── perception/         Phase 1 — sensor fusion, PointNet++, scene graph, NLP
-│   ├── rl/                 Phase 2 & 3 — Gym envs, GNN extractor, PPO/SAC training
-│   ├── sim2real/           Domain randomization, calibration
-│   └── production/         ONNX export, TensorRT engine, Prometheus metrics
-├── ros2_ws/                ROS2 Lifecycle nodes
-├── docker/                 Dockerfiles + docker-compose
-├── monitoring/             Prometheus + Grafana dashboard
-├── configs/                YAML configuration files
-└── tests/                  Unit + integration tests
+│   ├── perception/         # Sensor fusion, PointNet++ feature extraction, Scene Graph generation
+│   ├── rl/                 # Gymnasium environments, GNN extractors, PPO/SAC training loops
+│   ├── sim2real/           # Domain randomization and physics calibration modules
+│   └── production/         # ONNX/TensorRT export pipelines and Prometheus metrics
+├── ros2_ws/                # ROS2 Lifecycle nodes for hardware integration
+├── docker/                 # Containerization and orchestration (Docker Compose)
+├── monitoring/             # System telemetry via Prometheus and Grafana
+├── configs/                # Centralized YAML experiment configurations
+└── tests/                  # Unit and integration test suites
 ```
 
----
+## Installation & Setup
 
-## Quick Start
+### Environment Configuration
 
-### 1. Install dependencies
+We recommend using a dedicated virtual environment. Ensure your system meets the hardware requirements (NVIDIA GPU recommended for accelerated inference).
 
 ```bash
-python -m venv .venv && .venv\Scripts\activate
+python -m venv .venv
+source .venv/bin/activate  # On Windows use: .venv\Scripts\activate
 pip install -r requirements.txt
 pip install -e .
 ```
 
-### 2. Run tests
+### Test Suite Execution
+
+Validate the installation by running the comprehensive test suite:
 
 ```bash
 pytest tests/unit/ -v
 pytest tests/integration/ -v
 ```
 
----
+## Execution Modules
 
-## Phase-by-Phase Execution
+The framework is partitioned into modular execution phases to facilitate independent research and development on sub-components.
 
-### Phase 1 — 3D Perception
+### 1. 3D Perception & Grounding
+
+The perception module processes raw sensor streams to construct a semantically rich representation of the environment.
 
 ```python
 from aria.perception import SensorFusion, OccupancyMap, SceneGraph, NLPGrounder
 
+# Initialize perception primitives
 fusion = SensorFusion()
-frame  = fusion.process(rgbd_frame, lidar_scan)
+frame = fusion.process(rgbd_frame, lidar_scan)
 
+# Update spatial representation
 omap = OccupancyMap(resolution_m=0.05)
 omap.update(frame.points_world)
 
+# Construct semantic relationships
 graph = SceneGraph()
-# ... add detected nodes ...
+# ... integrate detected nodes ...
 
+# Ground language to scene graph
 grounder = NLPGrounder()
 plan = grounder.plan("fetch the red mug from the shelf", graph)
 ```
 
-### Phase 2 — Navigation Training
+### 2. Navigation Policy Training
+
+Train the mobile navigation policy using Proximal Policy Optimization (PPO).
 
 ```bash
 python -m aria.rl.train_nav --config configs/nav_training.yaml
 tensorboard --logdir runs/nav/
 ```
 
-### Phase 3 — Manipulation Training
+### 3. Manipulation Policy Training
+
+Train the robotic arm manipulation policy using Soft Actor-Critic (SAC).
 
 ```bash
 python -m aria.rl.train_manip --config configs/manip_training.yaml
 ```
 
-### Phase 4 — Production Export & Monitoring
+### 4. Production Deployment & Telemetry
+
+Export trained models to optimized runtimes and instantiate the telemetry stack.
 
 ```bash
+# Export models to ONNX
 python -m aria.production.export_onnx \
-    --nav-model   checkpoints/nav/best_model/best_model.zip \
+    --nav-model checkpoints/nav/best_model/best_model.zip \
     --manip-model checkpoints/manip/best_model/best_model.zip \
-    --output-dir  exports/onnx/
+    --output-dir exports/onnx/
 
-cd docker && docker compose up
-# Grafana: http://localhost:3000  |  Prometheus: http://localhost:9090
+# Launch monitoring infrastructure
+cd docker && docker compose up -d
+# Grafana: http://localhost:3000 | Prometheus: http://localhost:9090
 ```
 
-### ROS2 Deployment
+### 5. ROS2 Hardware Integration
+
+Deploy the complete software stack to physical hardware using ROS2 Lifecycle nodes.
 
 ```bash
-cd ros2_ws && colcon build --packages-select aria_ros
+cd ros2_ws
+colcon build --packages-select aria_ros
 source install/setup.bash
 ros2 launch aria_ros aria_full.launch.py
 ```
 
----
-
 ## Technology Stack
 
-| Layer | Technology |
-|---|---|
-| 3D Vision | PyTorch, Open3D, PointNet++ (native) |
-| Scene Graph | NetworkX, CLIP (ViT-B/32) |
-| NLP Planner | Phi-3-mini (HuggingFace Transformers) |
-| Simulation | PyBullet + Gymnasium |
-| RL | Stable-Baselines3 (PPO nav, SAC manip) |
-| GNN | Dense GAT (custom, SB3-compatible) |
-| Sim-to-Real | Domain randomization (texture/lighting/physics) |
-| Robot | Franka Emika Panda (7-DOF, PyBullet URDF) |
-| Production | ONNX + TensorRT (FP16), ROS2 Humble |
-| Containerization | Docker + NVIDIA Container Toolkit |
-| Monitoring | Prometheus + Grafana |
-
----
+| Subsystem | Core Technologies |
+| :--- | :--- |
+| **3D Computer Vision** | PyTorch, Open3D, PointNet++ |
+| **Semantic Representation**| NetworkX, CLIP (ViT-B/32) |
+| **Language Planning** | HuggingFace Transformers (Phi-3-mini) |
+| **Simulation Environment** | PyBullet, Gymnasium |
+| **Reinforcement Learning** | Stable-Baselines3 (PPO, SAC), Custom Dense GAT |
+| **Sim-to-Real Transfer** | Physics, Texture, and Lighting Domain Randomization |
+| **Hardware Platform** | Franka Emika Panda (7-DOF) |
+| **Deployment & Inference** | ONNX, TensorRT (FP16), ROS2 Humble |
+| **DevOps & Telemetry** | Docker, NVIDIA Container Toolkit, Prometheus, Grafana |
 
 ## License
 
-MIT
+This project is licensed under the MIT License. See the `LICENSE` file for details.
