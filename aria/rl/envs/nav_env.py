@@ -125,7 +125,16 @@ class NavEnv(gym.Env):
         self._node_feat_dim  = obs_cfg.get("node_feat_dim", _NODE_FEAT_DIM)
 
         # Reward
-        self._reward_fn = NavReward()
+        rew_cfg_dict = self.cfg.get("reward", {})
+        if rew_cfg_dict:
+            import dataclasses
+            from aria.rl.rewards import NavRewardConfig
+            valid_keys = {f.name for f in dataclasses.fields(NavRewardConfig)}
+            filtered_cfg = {k: v for k, v in rew_cfg_dict.items() if k in valid_keys}
+            rew_cfg = NavRewardConfig(**filtered_cfg)
+        else:
+            rew_cfg = None
+        self._reward_fn = NavReward(cfg=rew_cfg, max_steps=self._max_steps)
 
         # PyBullet client id (-1 = not connected yet)
         self._client: int = -1

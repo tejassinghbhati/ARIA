@@ -358,4 +358,13 @@ def sensor_fusion_from_config(cfg: dict) -> SensorFusion:
     lidar_to_camera[:3, :3] = R
     lidar_to_camera[:3, 3] = t
 
-    return SensorFusion(intrinsics=intr, lidar_to_camera=lidar_to_camera)
+    return SensorFusion(
+        intrinsics=intr,
+        lidar_to_camera=lidar_to_camera,
+        voxel_size_m=cfg.get("voxel_size_m", 0.03),
+        use_icp=cfg.get("use_icp", False),
+        icp_max_iter=cfg.get("icp_max_iter", 30),
+        remove_outliers=cfg.get("remove_outliers", True),
+        outlier_nb_neighbors=cfg.get("outlier_nb_neighbors", 20),
+        outlier_std_ratio=cfg.get("outlier_std_ratio", 2.0),
+    )

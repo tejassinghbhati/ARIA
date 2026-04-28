@@ -99,7 +99,16 @@ class ManipEnv(gym.Env):
         self._max_nodes     = obs_cfg.get("max_graph_nodes", _MAX_GRAPH_NODES)
         self._node_feat_dim = obs_cfg.get("node_feat_dim", _NODE_FEAT_DIM)
 
-        self._reward_fn = ManipReward()
+        rew_cfg_dict = self.cfg.get("reward", {})
+        if rew_cfg_dict:
+            import dataclasses
+            from aria.rl.rewards import ManipRewardConfig
+            valid_keys = {f.name for f in dataclasses.fields(ManipRewardConfig)}
+            filtered_cfg = {k: v for k, v in rew_cfg_dict.items() if k in valid_keys}
+            rew_cfg = ManipRewardConfig(**filtered_cfg)
+        else:
+            rew_cfg = None
+        self._reward_fn = ManipReward(cfg=rew_cfg)
 
         self._client: int = -1
         self._panda_id: int = -1
@@ -254,10 +263,11 @@ class ManipEnv(gym.Env):
         obj_pos = np.array(obj_pos_raw, dtype=np.float32)
 
         # Compute reward
-        new_ee = np.array(
-            pb.getLinkState(self._panda_id, PANDA_EE_LINK, physicsClientId=self._client)[0],
-            dtype=np.float32,
-        )
+        ee_state = pb.getLinkState(self._panda_id, PANDA_EE_LINK, physicsClientId=self._client)
+        new_ee = np.array(ee_state[0], dtype=np.float32)
+        rot_matrix = pb.getMatrixFromQuaternion(ee_state[1])
+        ee_z_axis = np.array([rot_matrix[2], rot_matrix[5], rot_matrix[8]], dtype=np.float32)
+
         reward, info = self._reward_fn(
             ee_pos=new_ee,
             object_pos=obj_pos,
@@ -267,6 +277,7 @@ class ManipEnv(gym.Env):
             placed=placed,
             dropped=dropped,
             collision=collision,
+            ee_z_axis=ee_z_axis,
         )
 
         terminated = placed
