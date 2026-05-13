@@ -4,7 +4,8 @@
       "Bash(Get-ChildItem -Path \"e:\\\\ARIA\" -Force)",
       "Bash(Select-Object Name, PSIsContainer)",
       "Bash(Format-Table -AutoSize)",
-      "Bash(py -3.11 --version)"
+      "Bash(py -3.11 --version)",
+      "Bash(.venv\\\\Scripts\\\\python.exe --version)"
     ]
   }
 }
