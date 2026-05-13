@@ -1,0 +1,9 @@
+services:
+  - type: web
+    name: aria-dashboard
+    runtime: python
+    buildCommand: pip install streamlit plotly networkx scipy numpy
+    startCommand: streamlit run app.py --server.port $PORT --server.address 0.0.0.0 --server.headless true
+    envVars:
+      - key: PYTHONPATH
+        value: .
