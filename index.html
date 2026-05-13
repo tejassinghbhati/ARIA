@@ -1,0 +1,1051 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ARIA — Autonomous Robot Intelligence Architecture</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #080c14;
+      --surface:   #0d1117;
+      --border:    #1e2533;
+      --border2:   #2d3748;
+      --cyan:      #00d4ff;
+      --purple:    #7c3aed;
+      --green:     #10b981;
+      --amber:     #f59e0b;
+      --text:      #e2e8f0;
+      --muted:     #64748b;
+      --faint:     #1e2533;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Inter', system-ui, sans-serif;
+      line-height: 1.6;
+      overflow-x: hidden;
+    }
+
+    /* ── Noise texture overlay ── */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)' opacity='0.04'/%3E%3C/svg%3E");
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* ── NAV ── */
+    nav {
+      position: fixed;
+      top: 0; left: 0; right: 0;
+      z-index: 100;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0 48px;
+      height: 64px;
+      background: rgba(8, 12, 20, 0.8);
+      border-bottom: 1px solid var(--border);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+
+    .nav-logo {
+      font-size: 1.1rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .nav-links {
+      display: flex;
+      align-items: center;
+      gap: 32px;
+      list-style: none;
+    }
+
+    .nav-links a {
+      color: var(--muted);
+      text-decoration: none;
+      font-size: 0.875rem;
+      font-weight: 500;
+      transition: color 0.2s;
+    }
+
+    .nav-links a:hover { color: var(--text); }
+
+    .nav-cta {
+      padding: 8px 20px;
+      border-radius: 8px;
+      background: rgba(0, 212, 255, 0.08);
+      border: 1px solid rgba(0, 212, 255, 0.25);
+      color: var(--cyan) !important;
+      font-size: 0.8rem !important;
+      font-weight: 600 !important;
+      transition: all 0.2s !important;
+    }
+
+    .nav-cta:hover {
+      background: rgba(0, 212, 255, 0.15) !important;
+      color: var(--cyan) !important;
+    }
+
+    /* ── HERO ── */
+    .hero {
+      position: relative;
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      text-align: center;
+      padding: 120px 24px 80px;
+      overflow: hidden;
+    }
+
+    /* Radial glow behind hero */
+    .hero::after {
+      content: '';
+      position: absolute;
+      top: 20%;
+      left: 50%;
+      transform: translateX(-50%);
+      width: 800px;
+      height: 500px;
+      background: radial-gradient(ellipse, rgba(0, 212, 255, 0.06) 0%, rgba(124, 58, 237, 0.04) 40%, transparent 70%);
+      pointer-events: none;
+    }
+
+    .hero-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 16px;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 212, 255, 0.2);
+      background: rgba(0, 212, 255, 0.05);
+      color: var(--cyan);
+      font-size: 0.75rem;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      margin-bottom: 32px;
+    }
+
+    .hero-badge-dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--cyan);
+      box-shadow: 0 0 8px var(--cyan);
+      animation: pulse 2s infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.4; }
+    }
+
+    .hero-title {
+      font-size: clamp(3rem, 8vw, 6rem);
+      font-weight: 700;
+      line-height: 1.05;
+      letter-spacing: -0.03em;
+      margin-bottom: 8px;
+      background: linear-gradient(135deg, #ffffff 30%, rgba(255,255,255,0.5));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-title-accent {
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-subtitle {
+      font-size: clamp(1rem, 2vw, 1.25rem);
+      color: var(--muted);
+      font-weight: 400;
+      max-width: 640px;
+      margin: 24px auto 48px;
+      line-height: 1.7;
+    }
+
+    .hero-actions {
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .btn-primary {
+      padding: 14px 32px;
+      border-radius: 10px;
+      background: linear-gradient(135deg, rgba(0,212,255,0.15), rgba(124,58,237,0.15));
+      border: 1px solid rgba(0, 212, 255, 0.3);
+      color: var(--cyan);
+      font-size: 0.9rem;
+      font-weight: 600;
+      text-decoration: none;
+      transition: all 0.2s;
+      letter-spacing: 0.02em;
+    }
+
+    .btn-primary:hover {
+      background: linear-gradient(135deg, rgba(0,212,255,0.22), rgba(124,58,237,0.22));
+      border-color: rgba(0, 212, 255, 0.5);
+      transform: translateY(-1px);
+    }
+
+    .btn-secondary {
+      padding: 14px 32px;
+      border-radius: 10px;
+      background: transparent;
+      border: 1px solid var(--border2);
+      color: var(--muted);
+      font-size: 0.9rem;
+      font-weight: 500;
+      text-decoration: none;
+      transition: all 0.2s;
+    }
+
+    .btn-secondary:hover {
+      border-color: var(--muted);
+      color: var(--text);
+      transform: translateY(-1px);
+    }
+
+    /* Hero stats bar */
+    .hero-stats {
+      display: flex;
+      gap: 0;
+      margin-top: 80px;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--surface);
+    }
+
+    .hero-stat {
+      padding: 20px 40px;
+      border-right: 1px solid var(--border);
+      text-align: center;
+    }
+
+    .hero-stat:last-child { border-right: none; }
+
+    .hero-stat-val {
+      font-size: 1.75rem;
+      font-weight: 700;
+      font-variant-numeric: tabular-nums;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .hero-stat-lbl {
+      font-size: 0.72rem;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      margin-top: 4px;
+    }
+
+    /* ── SECTION BASE ── */
+    section {
+      position: relative;
+      z-index: 1;
+      padding: 100px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .section-label {
+      display: inline-block;
+      font-size: 0.72rem;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--cyan);
+      margin-bottom: 16px;
+    }
+
+    .section-title {
+      font-size: clamp(1.75rem, 4vw, 2.5rem);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+      line-height: 1.2;
+      margin-bottom: 16px;
+    }
+
+    .section-desc {
+      font-size: 1rem;
+      color: var(--muted);
+      max-width: 560px;
+      line-height: 1.8;
+    }
+
+    /* ── PIPELINE ── */
+    .pipeline {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 1px;
+      background: var(--border);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      overflow: hidden;
+      margin-top: 60px;
+    }
+
+    .pipeline-step {
+      background: var(--surface);
+      padding: 32px 28px;
+      position: relative;
+      transition: background 0.2s;
+    }
+
+    .pipeline-step:hover { background: #111827; }
+
+    .pipeline-num {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.7rem;
+      color: var(--muted);
+      margin-bottom: 20px;
+      letter-spacing: 0.06em;
+    }
+
+    .pipeline-icon {
+      width: 40px;
+      height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.2rem;
+      margin-bottom: 16px;
+    }
+
+    .pipeline-step-title {
+      font-size: 0.95rem;
+      font-weight: 600;
+      color: var(--text);
+      margin-bottom: 10px;
+    }
+
+    .pipeline-step-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    .pipeline-tag {
+      display: inline-block;
+      margin-top: 16px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      padding: 3px 8px;
+      border-radius: 4px;
+      font-weight: 500;
+    }
+
+    /* ── FEATURES ── */
+    .features-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      margin-bottom: 60px;
+    }
+
+    .features-grid {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 16px;
+    }
+
+    .feature-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      padding: 32px;
+      transition: border-color 0.2s, transform 0.2s;
+      position: relative;
+      overflow: hidden;
+    }
+
+    .feature-card::before {
+      content: '';
+      position: absolute;
+      top: 0; left: 0; right: 0;
+      height: 1px;
+      background: linear-gradient(90deg, transparent, var(--cyan), transparent);
+      opacity: 0;
+      transition: opacity 0.3s;
+    }
+
+    .feature-card:hover {
+      border-color: var(--border2);
+      transform: translateY(-2px);
+    }
+
+    .feature-card:hover::before { opacity: 1; }
+
+    .feature-icon {
+      width: 44px;
+      height: 44px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.3rem;
+      margin-bottom: 20px;
+    }
+
+    .feature-title {
+      font-size: 1rem;
+      font-weight: 600;
+      margin-bottom: 10px;
+    }
+
+    .feature-desc {
+      font-size: 0.85rem;
+      color: var(--muted);
+      line-height: 1.7;
+    }
+
+    /* ── TECH STACK ── */
+    .stack-section {
+      background: var(--surface);
+      border-top: 1px solid var(--border);
+      border-bottom: 1px solid var(--border);
+      padding: 80px 24px;
+    }
+
+    .stack-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+
+    .stack-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 24px;
+      margin-top: 60px;
+    }
+
+    .stack-group {
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      background: var(--bg);
+    }
+
+    .stack-group-title {
+      font-size: 0.72rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.1em;
+      color: var(--muted);
+      margin-bottom: 16px;
+      padding-bottom: 12px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .stack-tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 5px 10px;
+      border-radius: 6px;
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border);
+      font-size: 0.78rem;
+      color: var(--text);
+      margin: 4px 4px 0 0;
+      font-family: 'JetBrains Mono', monospace;
+      transition: all 0.15s;
+    }
+
+    .stack-tag:hover {
+      border-color: var(--border2);
+      background: rgba(255,255,255,0.06);
+    }
+
+    /* ── ARCHITECTURE DIAGRAM ── */
+    .arch-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 60px;
+      align-items: center;
+      margin-top: 60px;
+    }
+
+    .arch-flow {
+      display: flex;
+      flex-direction: column;
+      gap: 0;
+    }
+
+    .arch-node {
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+      padding: 20px 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      position: relative;
+      transition: border-color 0.2s;
+    }
+
+    .arch-node:hover { border-color: var(--border2); }
+
+    .arch-connector {
+      width: 1px;
+      height: 24px;
+      background: linear-gradient(to bottom, var(--border), transparent);
+      margin-left: 35px;
+    }
+
+    .arch-node-icon {
+      width: 32px;
+      height: 32px;
+      border-radius: 8px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1rem;
+      flex-shrink: 0;
+    }
+
+    .arch-node-body {}
+
+    .arch-node-title {
+      font-size: 0.9rem;
+      font-weight: 600;
+      margin-bottom: 4px;
+    }
+
+    .arch-node-desc {
+      font-size: 0.78rem;
+      color: var(--muted);
+      line-height: 1.6;
+    }
+
+    .arch-freq {
+      margin-left: auto;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.68rem;
+      color: var(--cyan);
+      background: rgba(0, 212, 255, 0.08);
+      border: 1px solid rgba(0, 212, 255, 0.15);
+      padding: 2px 8px;
+      border-radius: 4px;
+      flex-shrink: 0;
+      align-self: flex-start;
+    }
+
+    .arch-info {
+      display: flex;
+      flex-direction: column;
+      gap: 20px;
+    }
+
+    .arch-info-card {
+      padding: 24px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+    }
+
+    .arch-info-title {
+      font-size: 0.75rem;
+      font-weight: 700;
+      text-transform: uppercase;
+      letter-spacing: 0.08em;
+      color: var(--muted);
+      margin-bottom: 12px;
+    }
+
+    .arch-info-list {
+      list-style: none;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+
+    .arch-info-list li {
+      font-size: 0.85rem;
+      color: var(--muted);
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .arch-info-list li::before {
+      content: '';
+      width: 5px;
+      height: 5px;
+      border-radius: 50%;
+      background: var(--cyan);
+      flex-shrink: 0;
+    }
+
+    /* ── CODE BLOCK ── */
+    .code-block {
+      background: #060a10;
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 28px 32px;
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.82rem;
+      line-height: 1.8;
+      overflow-x: auto;
+      position: relative;
+    }
+
+    .code-block-header {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 20px;
+      padding-bottom: 16px;
+      border-bottom: 1px solid var(--border);
+    }
+
+    .code-dot {
+      width: 10px; height: 10px;
+      border-radius: 50%;
+    }
+
+    .code-filename {
+      font-size: 0.72rem;
+      color: var(--muted);
+      margin-left: 4px;
+    }
+
+    .tk-kw   { color: #c792ea; }
+    .tk-fn   { color: #82aaff; }
+    .tk-str  { color: #c3e88d; }
+    .tk-cm   { color: #546e7a; }
+    .tk-cls  { color: #ffcb6b; }
+    .tk-pl   { color: var(--cyan); }
+
+    /* ── FOOTER ── */
+    footer {
+      border-top: 1px solid var(--border);
+      padding: 48px 24px;
+    }
+
+    .footer-inner {
+      max-width: 1200px;
+      margin: 0 auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .footer-logo {
+      font-size: 1rem;
+      font-weight: 700;
+      letter-spacing: 0.2em;
+      background: linear-gradient(135deg, var(--cyan), var(--purple));
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+
+    .footer-copy {
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+
+    .footer-links {
+      display: flex;
+      gap: 24px;
+    }
+
+    .footer-links a {
+      font-size: 0.8rem;
+      color: var(--muted);
+      text-decoration: none;
+      transition: color 0.2s;
+    }
+
+    .footer-links a:hover { color: var(--text); }
+
+    /* ── DIVIDER ── */
+    .full-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+    }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 900px) {
+      nav { padding: 0 24px; }
+      .nav-links { display: none; }
+      .pipeline { grid-template-columns: 1fr 1fr; }
+      .features-grid { grid-template-columns: 1fr 1fr; }
+      .stack-grid { grid-template-columns: 1fr 1fr; }
+      .arch-grid { grid-template-columns: 1fr; }
+      .hero-stats { flex-wrap: wrap; }
+      .hero-stat { border-right: none; border-bottom: 1px solid var(--border); flex: 1 1 40%; }
+    }
+
+    @media (max-width: 600px) {
+      .pipeline { grid-template-columns: 1fr; }
+      .features-grid { grid-template-columns: 1fr; }
+      .stack-grid { grid-template-columns: 1fr; }
+      .features-header { flex-direction: column; align-items: flex-start; gap: 16px; }
+      .footer-inner { flex-direction: column; gap: 24px; text-align: center; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV -->
+  <nav>
+    <div class="nav-logo">ARIA</div>
+    <ul class="nav-links">
+      <li><a href="#pipeline">Pipeline</a></li>
+      <li><a href="#features">Features</a></li>
+      <li><a href="#architecture">Architecture</a></li>
+      <li><a href="#stack">Stack</a></li>
+      <li><a href="https://github.com/tejassinghbhati/aria" target="_blank" class="nav-cta">GitHub →</a></li>
+    </ul>
+  </nav>
+
+  <!-- HERO -->
+  <div class="hero">
+    <div class="hero-badge">
+      <span class="hero-badge-dot"></span>
+      Embodied AI · Robotics · Deep RL
+    </div>
+
+    <h1 class="hero-title">
+      Autonomous Robot<br />
+      <span class="hero-title-accent">Intelligence Architecture</span>
+    </h1>
+
+    <p class="hero-subtitle">
+      ARIA bridges natural language and physical robotic action — fusing 3D perception,
+      LLM-based planning, and deep reinforcement learning into a single production-grade framework.
+    </p>
+
+    <div class="hero-actions">
+      <a href="https://github.com/tejassinghbhati/aria" target="_blank" class="btn-primary">View on GitHub →</a>
+      <a href="#pipeline" class="btn-secondary">Explore Architecture</a>
+    </div>
+
+    <div class="hero-stats">
+      <div class="hero-stat">
+        <div class="hero-stat-val">10 Hz</div>
+        <div class="hero-stat-lbl">Perception Rate</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-val">20 Hz</div>
+        <div class="hero-stat-lbl">Control Frequency</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-val">7-DOF</div>
+        <div class="hero-stat-lbl">Franka Panda Arm</div>
+      </div>
+      <div class="hero-stat">
+        <div class="hero-stat-val">3.8K+</div>
+        <div class="hero-stat-lbl">Lines of Code</div>
+      </div>
+    </div>
+  </div>
+
+  <hr class="full-divider" />
+
+  <!-- PIPELINE -->
+  <section id="pipeline">
+    <div class="section-label">System Pipeline</div>
+    <h2 class="section-title">From language to physical action</h2>
+    <p class="section-desc">
+      Four tightly integrated stages translate a natural language command into continuous
+      robot control at real-time frequency.
+    </p>
+
+    <div class="pipeline">
+      <div class="pipeline-step">
+        <div class="pipeline-num">01</div>
+        <div class="pipeline-icon" style="background:rgba(0,212,255,0.08)">🗣️</div>
+        <div class="pipeline-step-title">Semantic Planning</div>
+        <div class="pipeline-step-desc">
+          Phi-3-mini LLM decomposes natural language instructions into structured
+          sub-goal sequences via zero-shot prompting.
+        </div>
+        <span class="pipeline-tag" style="background:rgba(0,212,255,0.08);color:var(--cyan)">Phi-3-mini · HuggingFace</span>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">02</div>
+        <div class="pipeline-icon" style="background:rgba(16,185,129,0.08)">📡</div>
+        <div class="pipeline-step-title">Multimodal Perception</div>
+        <div class="pipeline-step-desc">
+          RGB-D, LiDAR, and IMU streams fused at 10 Hz into dense point clouds.
+          PointNet++ extracts hierarchical geometric features.
+        </div>
+        <span class="pipeline-tag" style="background:rgba(16,185,129,0.08);color:var(--green)">Open3D · PointNet++</span>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">03</div>
+        <div class="pipeline-icon" style="background:rgba(124,58,237,0.08)">🕸️</div>
+        <div class="pipeline-step-title">Scene Graph</div>
+        <div class="pipeline-step-desc">
+          A live semantic graph of detected objects with spatial predicate edges —
+          on, near, above, inside — grounded via CLIP embeddings.
+        </div>
+        <span class="pipeline-tag" style="background:rgba(124,58,237,0.08);color:var(--purple)">NetworkX · CLIP ViT-B/32</span>
+      </div>
+      <div class="pipeline-step">
+        <div class="pipeline-num">04</div>
+        <div class="pipeline-icon" style="background:rgba(245,158,11,0.08)">🤖</div>
+        <div class="pipeline-step-title">RL Control</div>
+        <div class="pipeline-step-desc">
+          Graph Attention Network conditions PPO navigation and SAC manipulation
+          policies to generate continuous joint commands at 20 Hz.
+        </div>
+        <span class="pipeline-tag" style="background:rgba(245,158,11,0.08);color:var(--amber)">PPO · SAC · GNN</span>
+      </div>
+    </div>
+  </section>
+
+  <hr class="full-divider" />
+
+  <!-- FEATURES -->
+  <section id="features">
+    <div class="features-header">
+      <div>
+        <div class="section-label">Capabilities</div>
+        <h2 class="section-title">Built for production deployment</h2>
+      </div>
+      <p class="section-desc" style="max-width:320px">
+        Every component is designed to run on physical hardware with real-time constraints.
+      </p>
+    </div>
+
+    <div class="features-grid">
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(0,212,255,0.08)">🔭</div>
+        <div class="feature-title">3D Multimodal Fusion</div>
+        <div class="feature-desc">
+          Synchronised RGB-D, LiDAR, and IMU fusion with ICP registration,
+          outlier removal, and voxel downsampling into metric point clouds.
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(16,185,129,0.08)">🧠</div>
+        <div class="feature-title">LLM Task Planning</div>
+        <div class="feature-desc">
+          Zero-shot decomposition of free-form commands into grounded sub-goal sequences.
+          Rule-based fallback ensures reliability without GPU.
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(124,58,237,0.08)">⚡</div>
+        <div class="feature-title">ONNX / TensorRT Export</div>
+        <div class="feature-desc">
+          Trained policies export to optimised ONNX with numerical validation,
+          then to TensorRT FP16 for sub-5ms inference on the robot.
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(245,158,11,0.08)">🔀</div>
+        <div class="feature-title">Sim-to-Real Transfer</div>
+        <div class="feature-desc">
+          Per-episode randomisation of textures, lighting, friction, mass, and
+          camera parameters trains policies robust to real-world variation.
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(239,68,68,0.08)">🌐</div>
+        <div class="feature-title">ROS2 Lifecycle Nodes</div>
+        <div class="feature-desc">
+          Perception, language, and policy nodes implement the ROS2 managed lifecycle
+          for clean startup, shutdown, and error recovery on the Franka robot.
+        </div>
+      </div>
+      <div class="feature-card">
+        <div class="feature-icon" style="background:rgba(6,182,212,0.08)">📊</div>
+        <div class="feature-title">Prometheus Observability</div>
+        <div class="feature-desc">
+          Inference latency, policy success rates, scene graph size, and resource
+          utilisation exported in real time to Grafana dashboards.
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <hr class="full-divider" />
+
+  <!-- ARCHITECTURE -->
+  <section id="architecture">
+    <div class="section-label">Architecture</div>
+    <h2 class="section-title">How it all fits together</h2>
+
+    <div class="arch-grid">
+      <div class="arch-flow">
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(0,212,255,0.1)">🗣️</div>
+          <div class="arch-node-body">
+            <div class="arch-node-title">Natural Language Input</div>
+            <div class="arch-node-desc">"Fetch the red mug from the shelf"</div>
+          </div>
+        </div>
+        <div class="arch-connector"></div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(124,58,237,0.1)">🧩</div>
+          <div class="arch-node-body">
+            <div class="arch-node-title">LLM Planner → SubGoals</div>
+            <div class="arch-node-desc">navigate_to shelf · pick_up red_mug · navigate_to table · place_on table</div>
+          </div>
+        </div>
+        <div class="arch-connector"></div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(16,185,129,0.1)">📡</div>
+          <div class="arch-node-body">
+            <div class="arch-node-title">Perception Pipeline</div>
+            <div class="arch-node-desc">Sensor fusion → occupancy map → scene graph construction</div>
+          </div>
+          <span class="arch-freq">10 Hz</span>
+        </div>
+        <div class="arch-connector"></div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(245,158,11,0.1)">🕸️</div>
+          <div class="arch-node-body">
+            <div class="arch-node-title">GNN Feature Extraction</div>
+            <div class="arch-node-desc">Graph Attention Network over scene graph → 512-dim policy embedding</div>
+          </div>
+        </div>
+        <div class="arch-connector"></div>
+        <div class="arch-node">
+          <div class="arch-node-icon" style="background:rgba(239,68,68,0.1)">🤖</div>
+          <div class="arch-node-body">
+            <div class="arch-node-title">RL Policy Execution</div>
+            <div class="arch-node-desc">PPO → /cmd_vel · SAC → /franka/joint_commands</div>
+          </div>
+          <span class="arch-freq">20 Hz</span>
+        </div>
+      </div>
+
+      <div class="arch-info">
+        <div class="arch-info-card">
+          <div class="arch-info-title">Navigation Policy (PPO)</div>
+          <ul class="arch-info-list">
+            <li>2M training timesteps, 8 parallel envs</li>
+            <li>PyBullet physics at 240 Hz</li>
+            <li>Continuous [vx, vy, ω] velocity commands</li>
+            <li>Goal detection within 0.3m radius</li>
+          </ul>
+        </div>
+        <div class="arch-info-card">
+          <div class="arch-info-title">Manipulation Policy (SAC)</div>
+          <ul class="arch-info-list">
+            <li>1.5M timesteps, 500K replay buffer</li>
+            <li>Franka Panda 7-DOF joint control</li>
+            <li>Force-torque sensor feedback</li>
+            <li>Domain randomisation enabled</li>
+          </ul>
+        </div>
+        <div class="arch-info-card">
+          <div class="arch-info-title">Scene Graph</div>
+          <ul class="arch-info-list">
+            <li>Up to 64 object nodes per scene</li>
+            <li>7 spatial predicate types</li>
+            <li>CLIP ViT-B/32 semantic verification</li>
+            <li>Exports dense tensors for GNN input</li>
+          </ul>
+        </div>
+
+        <div class="code-block">
+          <div class="code-block-header">
+            <div class="code-dot" style="background:#ff5f57"></div>
+            <div class="code-dot" style="background:#febc2e"></div>
+            <div class="code-dot" style="background:#28c840"></div>
+            <span class="code-filename">quick_start.py</span>
+          </div>
+<span class="tk-kw">from</span> <span class="tk-pl">aria.perception</span> <span class="tk-kw">import</span> <span class="tk-cls">SceneGraph</span>, <span class="tk-cls">NLPGrounder</span>
+
+sg = <span class="tk-cls">SceneGraph</span>()
+grounder = <span class="tk-cls">NLPGrounder</span>()
+
+plan = grounder.<span class="tk-fn">plan</span>(
+    <span class="tk-str">"fetch the red mug from the shelf"</span>,
+    scene_graph=sg
+)
+
+<span class="tk-kw">for</span> step <span class="tk-kw">in</span> plan:
+    <span class="tk-fn">print</span>(step.action, <span class="tk-str">"→"</span>, step.object_desc)
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- TECH STACK -->
+  <div class="stack-section" id="stack">
+    <div class="stack-inner">
+      <div class="section-label">Technology Stack</div>
+      <h2 class="section-title">Built on proven foundations</h2>
+
+      <div class="stack-grid">
+        <div class="stack-group">
+          <div class="stack-group-title">3D Vision</div>
+          <span class="stack-tag">PyTorch</span>
+          <span class="stack-tag">Open3D</span>
+          <span class="stack-tag">PointNet++</span>
+          <span class="stack-tag">CLIP</span>
+        </div>
+        <div class="stack-group">
+          <div class="stack-group-title">Intelligence</div>
+          <span class="stack-tag">Phi-3-mini</span>
+          <span class="stack-tag">Transformers</span>
+          <span class="stack-tag">SentenceTransformers</span>
+          <span class="stack-tag">NetworkX</span>
+        </div>
+        <div class="stack-group">
+          <div class="stack-group-title">Reinforcement Learning</div>
+          <span class="stack-tag">Stable-Baselines3</span>
+          <span class="stack-tag">PyBullet</span>
+          <span class="stack-tag">Gymnasium</span>
+          <span class="stack-tag">PyTorch Geometric</span>
+        </div>
+        <div class="stack-group">
+          <div class="stack-group-title">Deployment</div>
+          <span class="stack-tag">ONNX</span>
+          <span class="stack-tag">TensorRT</span>
+          <span class="stack-tag">ROS2 Humble</span>
+          <span class="stack-tag">Docker</span>
+          <span class="stack-tag">Prometheus</span>
+          <span class="stack-tag">Grafana</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- FOOTER -->
+  <footer>
+    <div class="footer-inner">
+      <div class="footer-logo">ARIA</div>
+      <div class="footer-copy">MIT License · Autonomous Robot Intelligence Architecture</div>
+      <div class="footer-links">
+        <a href="https://github.com/tejassinghbhati/aria" target="_blank">GitHub</a>
+        <a href="#pipeline">Docs</a>
+      </div>
+    </div>
+  </footer>
+
+</body>
+</html>
