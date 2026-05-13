@@ -19,7 +19,7 @@ accelerate>=0.29.0
 sentence-transformers>=2.7.0
 
 # ── CLIP (for zero-shot object-language matching) ─────────────────────────────
-openai-clip @ git+https://github.com/openai/CLIP.git
+clip @ git+https://github.com/openai/CLIP.git
 Pillow>=10.0.0
 
 # ── Simulation ────────────────────────────────────────────────────────────────
